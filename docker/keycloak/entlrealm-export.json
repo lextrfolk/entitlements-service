@@ -1,0 +1,34 @@
+{
+  "id": "entlrealm",
+  "realm": "entlrealm",
+  "enabled": true,
+  "clients": [
+    {
+      "clientId": "entl-client",
+      "name": "Entl Client",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["*"]
+    }
+  ],
+  "users": [
+    {
+      "username": "entladmin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Realm",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}
