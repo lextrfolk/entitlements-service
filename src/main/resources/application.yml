@@ -1,0 +1,6 @@
+keycloak:
+  server-url: http://localhost:8080
+  realm: entlrealm
+  client-id: entl-client
+  username: entladmin
+  password: admin
