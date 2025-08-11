@@ -1,5 +1,6 @@
 package com.app.entitlement.service;
 
+import com.app.entitlement.model.User;
 import com.app.entitlement.model.UserGroupAssignmentRequest;
 import jakarta.annotation.PostConstruct;
 
@@ -264,9 +265,17 @@ public class KeycloakAuthorizationProvisionerService {
                 String schedule = pair.get(1);
 
                 String groupName = role + "|" + form + "|" + schedule;
-                String user = getOrCreateUserByUsername(userId);
-                String groupId = createGroupIfNotExists(groupName);
-                addUserToGroup(user, groupId);
+
+                String user = "";
+                List<UserRepresentation> users = keycloak.realm(realm).users().search(userId, true);
+                if (!users.isEmpty()) {
+                    user =  users.get(0).getId();
+                    String groupId = createGroupIfNotExists(groupName);
+                    addUserToGroup(user, groupId);// Found
+                } else {
+                    System.out.println("User Not Found "+userId);
+                }
+
             }
 
 
@@ -278,51 +287,9 @@ public class KeycloakAuthorizationProvisionerService {
         keycloak.realm(realm).users().get(userId).joinGroup(groupId);
     }
 
-    private String createUser(String username, String firstName, String lastName, String password) {
-        // 1. Create user representation
-        UserRepresentation user = new UserRepresentation();
-        user.setUsername(username);
-        user.setFirstName(firstName);
-        user.setLastName(lastName);
-        user.setEmail(username+"@example.com");
-        user.setEmailVerified(true);
-        user.setEnabled(true);
 
-        // 2. Send create request
-        Response response = keycloak.realm(realm).users().create(user);
 
-        if (response.getStatus() != 201) {
-            System.out.println("Error Body: " + response.readEntity(String.class));
-            return "Failed to create user. Status: " + response.getStatus();
-        }
 
-        // 3. Extract created userId
-        String userId = response.getLocation().getPath().replaceAll(".*/([^/]+)$", "$1");
-        response.close();
-
-        // 4. Set password credential
-        CredentialRepresentation cred = new CredentialRepresentation();
-        cred.setType(CredentialRepresentation.PASSWORD);
-        cred.setValue(password);
-        cred.setTemporary(false);  // Set to true if you want the user to reset it
-
-        keycloak.realm(realm)
-                .users()
-                .get(userId)
-                .resetPassword(cred);
-
-        return userId;
-    }
-
-    private String getOrCreateUserByUsername(String username) {
-        List<UserRepresentation> users = keycloak.realm(realm).users().search(username, true);
-        if (!users.isEmpty()) {
-            return users.get(0).getId(); // Found
-        }
-
-        // Create user if not exists
-       return createUser(username, username+"firstname", username+"lastname","test123");
-    }
 
     public UserGroupAssignmentRequest getUserEntl(String userName) {
         try {
@@ -367,5 +334,50 @@ public class KeycloakAuthorizationProvisionerService {
         }
 
     }
+
+    public String createUser(User request) {
+
+        List<UserRepresentation> users = keycloak.realm(realm).users().search(request.getUserName(), true);
+        if (!users.isEmpty()) {
+            return "User Name already exists. Please try different user "+request.getUserName(); // Found
+        }
+
+        // 1. Create user representation
+        UserRepresentation user = new UserRepresentation();
+        user.setUsername(request.getUserName());
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
+        user.setEmail(request.getEmail());
+        user.setEmailVerified(true);
+        user.setEnabled(true);
+
+        // 2. Send create request
+        Response response = keycloak.realm(realm).users().create(user);
+
+        if (response.getStatus() != 201) {
+            System.out.println("Error Body: " + response.readEntity(String.class));
+            return "Failed to create user. Status: " + response.getStatus();
+        }
+
+        // 3. Extract created userId
+        String userId = response.getLocation().getPath().replaceAll(".*/([^/]+)$", "$1");
+        response.close();
+
+        // 4. Set password credential
+        CredentialRepresentation cred = new CredentialRepresentation();
+        cred.setType(CredentialRepresentation.PASSWORD);
+        cred.setValue(request.getKey());
+        cred.setTemporary(false);  // Set to true if you want the user to reset it
+
+        keycloak.realm(realm)
+                .users()
+                .get(userId)
+                .resetPassword(cred);
+
+        return userId;
+
+    }
+
+
 }
 

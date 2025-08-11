@@ -1,5 +1,6 @@
 package com.app.entitlement.controller;
 
+import com.app.entitlement.model.User;
 import com.app.entitlement.model.UserGroupAssignmentRequest;
 import com.app.entitlement.service.KeycloakAuthorizationProvisionerService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +41,19 @@ public class ProvisioningController {
     public ResponseEntity<UserGroupAssignmentRequest> getUserGroups(@RequestParam String userId) {
         UserGroupAssignmentRequest response = keycloakAuthorizationProvisionerService.getUserEntl(userId);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/signUp")
+    public ResponseEntity<String> createUser(@RequestBody User request) {
+
+        try {
+            keycloakAuthorizationProvisionerService.createUser(request);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error during group assignment: " + e.getMessage());
+        }
+
+        return ResponseEntity.ok("Provisioning started.");
     }
 
 
