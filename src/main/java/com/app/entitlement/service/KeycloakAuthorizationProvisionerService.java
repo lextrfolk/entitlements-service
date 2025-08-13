@@ -1,13 +1,13 @@
 package com.app.entitlement.service;
 
-import com.app.entitlement.model.User;
-import com.app.entitlement.model.UserGroupAssignmentRequest;
+import com.app.entitlement.model.*;
 import jakarta.annotation.PostConstruct;
 
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
+import org.keycloak.admin.client.resource.ClientResource;
 import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.representations.idm.*;
 import org.keycloak.representations.idm.authorization.*;
@@ -42,6 +42,9 @@ public class KeycloakAuthorizationProvisionerService {
     @Value("${keycloak.password}")
     private String password;
 
+    @Value("${keycloak.clientSecret}")
+    private String clientSecret;
+
     private Keycloak keycloak;
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -52,7 +55,7 @@ public class KeycloakAuthorizationProvisionerService {
                 .serverUrl(serverUrl)
                 .realm(realm)
                 .clientId(clientId)
-                .clientSecret("hobI81AZuI4w2PLPSMq1xAbAzgEYOvII")
+                .clientSecret(clientSecret)
                 .username(username)
                 .password(password)
                 .grantType(OAuth2Constants.PASSWORD)
@@ -68,7 +71,7 @@ public class KeycloakAuthorizationProvisionerService {
 
         Map<String, String> params = Map.of(
                 "client_id", clientId,
-                "client_secret","hobI81AZuI4w2PLPSMq1xAbAzgEYOvII",
+                "client_secret",clientSecret,
                 "grant_type", "password",
                 "username", username,
                 "password", password
@@ -143,6 +146,17 @@ public class KeycloakAuthorizationProvisionerService {
     }
 
     private void createScope(String clientUUID, String scopeName) {
+        boolean exist = keycloak.realm(realm)
+                .clients()
+                .get(clientUUID)
+                .authorization()
+                .scopes()
+                .findByName(scopeName) != null;
+
+        if (exist) {
+            System.out.println("Scope already exists: " + scopeName);
+            return; // Skip creation
+        }
         ScopeRepresentation scope = new ScopeRepresentation();
         scope.setName(scopeName);
         scope.setDisplayName(scopeName);
@@ -219,6 +233,15 @@ public class KeycloakAuthorizationProvisionerService {
 
 
     private void createGroupPolicy(String clientUUID, String policyName, String groupId) {
+
+        boolean exists = keycloak.realm(realm)
+                .clients()
+                .get(clientUUID)
+                .authorization()
+                .policies()
+                .findByName(policyName) != null;
+        if (exists)
+            return;
         Map<String, String> config = new HashMap<>();
         String groupJson = "[{\"id\":\"" + groupId + "\",\"extendChildren\":false}]";
         config.put("groups", groupJson);
@@ -235,21 +258,33 @@ public class KeycloakAuthorizationProvisionerService {
     }
 
     private void createPermission(String clientUUID, String name, String resource, String scope, String policyName) {
-        ScopePermissionRepresentation permission = new ScopePermissionRepresentation();
-        permission.setName(name);
-        permission.setDecisionStrategy(DecisionStrategy.UNANIMOUS);
-        permission.setLogic(Logic.POSITIVE);
-        permission.setResources(Set.of(resource));    // Resource names
-        permission.setScopes(Set.of(scope));          // Scope names
-        permission.setPolicies(Set.of(policyName));  // Already existing policy names
 
-        keycloak.realm(realm)
+        boolean exists = keycloak.realm(realm)
                 .clients()
                 .get(clientUUID)
                 .authorization()
                 .permissions()
                 .scope()
-                .create(permission);
+                .findByName(name) != null;
+
+        if (!exists) {
+
+            ScopePermissionRepresentation permission = new ScopePermissionRepresentation();
+            permission.setName(name);
+            permission.setDecisionStrategy(DecisionStrategy.UNANIMOUS);
+            permission.setLogic(Logic.POSITIVE);
+            permission.setResources(Set.of(resource));    // Resource names
+            permission.setScopes(Set.of(scope));          // Scope names
+            permission.setPolicies(Set.of(policyName));  // Already existing policy names
+
+            keycloak.realm(realm)
+                    .clients()
+                    .get(clientUUID)
+                    .authorization()
+                    .permissions()
+                    .scope()
+                    .create(permission);
+        }
     }
 
     public void assignUserToGroup(UserGroupAssignmentRequest request) {
@@ -289,9 +324,47 @@ public class KeycloakAuthorizationProvisionerService {
 
 
 
+    public UserGroupResponseRequest getUserEntl(String userName) {
+        try {
+            List<UserRepresentation> users = keycloak.realm(realm).users().search(userName, true);
+            if (users.isEmpty()) {
+                throw new RuntimeException("User not found: " + userName);
+            }
+            String userId = users.get(0).getId();
+            UserResource userResource = keycloak.realm(realm).users().get(userId);
+            List<GroupRepresentation> groups = userResource.groups();
+
+            // Map role -> list of [form, schedule]
+            Map<String, List<List<String>>> roleMap = new LinkedHashMap<>();
+
+            for (GroupRepresentation group : groups) {
+                String name = group.getName(); // e.g., ADMIN|FRY9C|Schedule_A
+                String[] parts = name.split("\\|");
+
+                if (parts.length == 3) {
+                    String role = parts[0];
+                    String form = parts[1];
+                    String schedule = parts[2];
+
+                    roleMap.computeIfAbsent(role, k -> new ArrayList<>())
+                            .add(Arrays.asList(form, schedule));
+                }
+            }
+
+            // Build list of RoleAssignments
+            List<RoleAssignments> assignments = roleMap.entrySet().stream()
+                    .map(e -> new RoleAssignments(e.getKey(), e.getValue()))
+                    .collect(Collectors.toList());
+
+            return new UserGroupResponseRequest(userName, assignments);
+
+        } catch (Exception e) {
+            throw e;
+        }
+    }
 
 
-    public UserGroupAssignmentRequest getUserEntl(String userName) {
+   /* public UserGroupAssignmentRequest getUserEntl(String userName) {
         try {
             List<UserRepresentation> users = keycloak.realm(realm).users().search(userName, true);
             if (users.isEmpty()) {
@@ -333,7 +406,7 @@ public class KeycloakAuthorizationProvisionerService {
             throw e;
         }
 
-    }
+    }*/
 
     public String createUser(User request) {
 
@@ -379,5 +452,42 @@ public class KeycloakAuthorizationProvisionerService {
     }
 
 
+    public void createRoles(List<NameDescModel> roles) {
+        ClientRepresentation client = getClient(clientId);
+        String clientUUID = client.getId();
+        ClientResource clientResource = keycloak.realm(realm).clients().get(clientUUID);
+        List<RoleRepresentation> existingRoles = getClientRoles(clientUUID);
+        List<String> created = new ArrayList<>();
+        List<String> skipped = new ArrayList<>();
+
+        for (NameDescModel roleDTO : roles) {
+            try {
+                // Check if role already exists
+
+                boolean exists = existingRoles.stream()
+                        .anyMatch(r -> r.getName().equals(roleDTO.getName()));
+
+                if (exists) {
+                    skipped.add(roleDTO.getName());
+                    continue;
+                }
+
+                // Create role
+                RoleRepresentation role = new RoleRepresentation();
+                role.setName(roleDTO.getName());
+                role.setDescription(roleDTO.getDescription());
+                clientResource.roles().create(role);
+                created.add(roleDTO.getName());
+
+            } catch (Exception e) {
+               throw e;
+            }
+        }
+
+        Map<String, Object> response = Map.of(
+                "created", created,
+                "skipped", skipped
+        );
+    }
 }
 

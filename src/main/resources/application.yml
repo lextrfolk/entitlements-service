@@ -3,4 +3,5 @@ keycloak:
   realm: entlrealm
   client-id: entl-client
   username: entladmin
+  clientSecret: hobI81AZuI4w2PLPSMq1xAbAzgEYOvII
   password: admin

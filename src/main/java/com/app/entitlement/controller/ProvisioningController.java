@@ -1,7 +1,9 @@
 package com.app.entitlement.controller;
 
+import com.app.entitlement.model.NameDescModel;
 import com.app.entitlement.model.User;
 import com.app.entitlement.model.UserGroupAssignmentRequest;
+import com.app.entitlement.model.UserGroupResponseRequest;
 import com.app.entitlement.service.KeycloakAuthorizationProvisionerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -38,8 +40,8 @@ public class ProvisioningController {
     }
 
     @GetMapping("/user-groups")
-    public ResponseEntity<UserGroupAssignmentRequest> getUserGroups(@RequestParam String userId) {
-        UserGroupAssignmentRequest response = keycloakAuthorizationProvisionerService.getUserEntl(userId);
+    public ResponseEntity<UserGroupResponseRequest> getUserGroups(@RequestParam String userId) {
+        UserGroupResponseRequest response = keycloakAuthorizationProvisionerService.getUserEntl(userId);
         return ResponseEntity.ok(response);
     }
 
@@ -53,7 +55,21 @@ public class ProvisioningController {
                     .body("Error during group assignment: " + e.getMessage());
         }
 
-        return ResponseEntity.ok("Provisioning started.");
+        return ResponseEntity.ok("User created");
+    }
+
+    @PostMapping("/createRoles")
+    public ResponseEntity<String> createRoles(@RequestBody List<NameDescModel> roles) {
+
+        try {
+            keycloakAuthorizationProvisionerService.createRoles(roles);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error during create roles: " + e.getMessage());
+        }
+
+        return ResponseEntity.ok("User created");
+
     }
 
 
