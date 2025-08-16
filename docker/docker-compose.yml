@@ -31,6 +31,7 @@ services:
       - postgres
     volumes:
       - ./keycloak/entlrealm-export.json:/opt/keycloak/data/import/entlrealm-export.json:ro
+      - C:/Lextr-UI/login-sample/my-keycloak-app/keycloak-themes:/opt/keycloak/themes
 
 volumes:
   postgres_data:
