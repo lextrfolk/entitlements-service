@@ -26,12 +26,12 @@ services:
       KC_DB_URL_DATABASE: keycloak
     command: start-dev --import-realm
     ports:
-      - "8080:8080"
+      - "8085:8080"
     depends_on:
       - postgres
     volumes:
       - ./keycloak/entlrealm-export.json:/opt/keycloak/data/import/entlrealm-export.json:ro
-      - C:/Lextr-UI/login-sample/my-keycloak-app/keycloak-themes:/opt/keycloak/themes
+      - /Users/abhisheksrivastava/Documents/LextrDocker/my-keycloak-app/myapp-theme:/opt/keycloak/themes/myapp-theme
 
 volumes:
   postgres_data:
