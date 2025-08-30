@@ -1,0 +1,30 @@
+Steps to Expose Keycloak with Ingress + DNS + Static IP
+
+1) Reserve a Static IP in your Cloud Provider (e.g., Google Cloud, AWS, Azure)
+   - For Google Cloud:
+     gcloud compute addresses create keycloak-static-ip --global
+     gcloud compute addresses describe keycloak-static-ip --global
+   - Note down the reserved static IP address.
+
+2) Update Keyclock service to ClusterIP
+3) Create an Ingress for Keycloak
+      Bind your static IP + domain to the ingress.
+         Example  Ingress YAML : keyclock-ingress.yml
+
+4) Point Domain to Static IP
+      Go to your DNS provider (Cloud DNS / GoDaddy / etc).
+   Create an A record:
+      keycloak.example.com → <your reserved static IP>
+
+5) TLS (Optional but Recommended)
+
+   If you want HTTPS:  Install cert-manager in cluster
+   Request a Let’s Encrypt certificate that populates keycloak-tls secret.
+
+   Or upload a manual cert as Kubernetes TLS secret:
+
+    kubectl create secret tls keycloak-tls \
+    --cert=server.crt \
+    --key=server.key \
+    -n keycloak
+
