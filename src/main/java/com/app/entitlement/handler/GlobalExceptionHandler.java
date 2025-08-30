@@ -4,6 +4,7 @@ package com.app.entitlement.handler;
 
 import com.app.entitlement.constants.CommonConstants;
 import com.app.entitlement.exception.UserAlreadyExistsException;
+import com.app.entitlement.exception.UserCreationException;
 import com.app.entitlement.exception.UserNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +36,7 @@ public class GlobalExceptionHandler {
      * @param ex the exception
      */
     private void logException(Exception ex) {
+        ex.printStackTrace();
         logger.error("{}: {}", ex.getClass().getSimpleName(), ex.getMessage());
     }
 
@@ -58,7 +60,7 @@ public class GlobalExceptionHandler {
      * @param ex the UserAlreadyExistsException
      * @return a ResponseEntity with CONFLICT status and error details
      */
-    @ExceptionHandler(UserAlreadyExistsException.class)
+    @ExceptionHandler({UserCreationException.class, UserAlreadyExistsException.class})
     public ResponseEntity<Map<String, String>> handleUserAlreadyExistsException(UserAlreadyExistsException ex) {
         logger.warn("User already exists: {}", ex.getMessage());
         logException(ex);

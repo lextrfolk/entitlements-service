@@ -8,6 +8,4 @@ keycloak:
   server-url: http://127.0.0.1:8085
   realm: entlrealm
   client-id: entl-client
-  username: entladmin
   clientSecret: I8kQO69qf3adJG0FBen3w5S1JoxBs8wr
-  password: admin

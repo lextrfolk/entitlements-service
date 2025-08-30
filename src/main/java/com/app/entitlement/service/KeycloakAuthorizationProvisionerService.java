@@ -1,5 +1,6 @@
 package com.app.entitlement.service;
 
+import com.app.entitlement.exception.KeycloakClientNotFoundException;
 import com.app.entitlement.exception.UserAlreadyExistsException;
 import com.app.entitlement.exception.UserCreationException;
 import com.app.entitlement.exception.UserNotFoundException;
@@ -39,12 +40,6 @@ public class KeycloakAuthorizationProvisionerService {
     @Value("${keycloak.client-id}")
     private String clientId;
 
-    @Value("${keycloak.username}")
-    private String username;
-
-    @Value("${keycloak.password}")
-    private String password;
-
     @Value("${keycloak.clientSecret}")
     private String clientSecret;
 
@@ -59,9 +54,7 @@ public class KeycloakAuthorizationProvisionerService {
                 .realm(realm)
                 .clientId(clientId)
                 .clientSecret(clientSecret)
-                .username(username)
-                .password(password)
-                .grantType(OAuth2Constants.PASSWORD)
+                .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
                 .build();
     }
 
@@ -75,9 +68,7 @@ public class KeycloakAuthorizationProvisionerService {
         Map<String, String> params = Map.of(
                 "client_id", clientId,
                 "client_secret",clientSecret,
-                "grant_type", "password",
-                "username", username,
-                "password", password
+                "grant_type", "client_credentials"
         );
 
         HttpEntity<String> request = new HttpEntity<>(buildForm(params), headers);
@@ -130,7 +121,10 @@ public class KeycloakAuthorizationProvisionerService {
     }
 
     private ClientRepresentation getClient(String clientId) {
-        return keycloak.realm(realm).clients().findByClientId(clientId).get(0);
+        List<ClientRepresentation> clientRepresentations = keycloak.realm(realm).clients().findByClientId(clientId);
+        if (clientRepresentations.isEmpty())
+            throw new KeycloakClientNotFoundException(clientId);
+        return clientRepresentations.get(0);
     }
 
     private void createResource(String clientUUID, String form, List<String> scopes) {
@@ -145,7 +139,9 @@ public class KeycloakAuthorizationProvisionerService {
                 })
                 .collect(Collectors.toSet());
         resource.setScopes(scopeSet);
-        keycloak.realm(realm).clients().get(clientUUID).authorization().resources().create(resource);
+        try(var response = keycloak.realm(realm).clients().get(clientUUID).authorization().resources().create(resource)){
+            log.info("Resource created: {} Response: {}", form, response.getStatus());
+        }
     }
 
     private void createScope(String clientUUID, String scopeName) {
@@ -464,30 +460,30 @@ public class KeycloakAuthorizationProvisionerService {
         String clientUUID = client.getId();
         ClientResource clientResource = keycloak.realm(realm).clients().get(clientUUID);
         List<RoleRepresentation> existingRoles = getClientRoles(clientUUID);
+
+        Set<String> existingRoleNames = existingRoles.stream()
+                .map(RoleRepresentation::getName)
+                .collect(Collectors.toSet());
+
         List<String> created = new ArrayList<>();
         List<String> skipped = new ArrayList<>();
 
         for (RoleRequest roleDTO : roles) {
+            if (existingRoleNames.contains(roleDTO.getName())) {
+                skipped.add(roleDTO.getName());
+                continue;
+            }
+
+            // Create role
+            RoleRepresentation role = new RoleRepresentation();
+            role.setName(roleDTO.getName());
+            role.setDescription(roleDTO.getDescription());
             try {
-                // Check if role already exists
-
-                boolean exists = existingRoles.stream()
-                        .anyMatch(r -> r.getName().equals(roleDTO.getName()));
-
-                if (exists) {
-                    skipped.add(roleDTO.getName());
-                    continue;
-                }
-
-                // Create role
-                RoleRepresentation role = new RoleRepresentation();
-                role.setName(roleDTO.getName());
-                role.setDescription(roleDTO.getDescription());
                 clientResource.roles().create(role);
                 created.add(roleDTO.getName());
-
             } catch (Exception e) {
-               throw e;
+                log.error("Failed to create role {}: {}", roleDTO.getName(), e.getMessage(), e);
+                skipped.add(roleDTO.getName());
             }
         }
 
@@ -495,6 +491,7 @@ public class KeycloakAuthorizationProvisionerService {
                 "created", created,
                 "skipped", skipped
         );
+        log.info("Role creation summary: {}", response);
     }
 }
 
