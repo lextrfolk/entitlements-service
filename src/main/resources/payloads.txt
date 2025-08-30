@@ -1,0 +1,40 @@
+// Create user
+
+{
+  "firstName": "string",
+  "lastName": "string",
+  "email": "string",
+  "key": "string",
+  "userName": "string"
+}
+
+// Create role
+
+[
+  {
+    "name": "RULE_APPROVER",
+    "displayName": "Rules Approver",
+    "description": "Role is responsible for rule approving"
+  }
+]
+
+//  Generate Metadata
+
+{
+  "FRY9C": ["ScheduleA", "ScheduleB", "ScheduleC"],
+  "FR5300": ["ScheduleX", "ScheduleY"]
+}
+
+
+// assign user to group
+
+{
+  "userId": "user1",
+  "role": "DATA_SUBMITTER",
+  "data": [
+    ["FRY9C", "ScheduleA"],
+    ["FRY9C", "ScheduleB"],
+    ["FRY9C", "ScheduleC"]
+	]
+}
+

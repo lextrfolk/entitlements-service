@@ -1,5 +1,8 @@
 package com.app.entitlement.service;
 
+import com.app.entitlement.exception.UserAlreadyExistsException;
+import com.app.entitlement.exception.UserCreationException;
+import com.app.entitlement.exception.UserNotFoundException;
 import com.app.entitlement.model.*;
 import jakarta.annotation.PostConstruct;
 
@@ -324,11 +327,10 @@ public class KeycloakAuthorizationProvisionerService {
 
 
 
-    public UserGroupResponseRequest getUserEntl(String userName) {
-        try {
+    public UserGroupAssignmentResponse getUserEntl(String userName) {
             List<UserRepresentation> users = keycloak.realm(realm).users().search(userName, true);
             if (users.isEmpty()) {
-                throw new RuntimeException("User not found: " + userName);
+                throw new UserNotFoundException(String.format("User not found: %s", userName));
             }
             String userId = users.get(0).getId();
             UserResource userResource = keycloak.realm(realm).users().get(userId);
@@ -356,11 +358,7 @@ public class KeycloakAuthorizationProvisionerService {
                     .map(e -> new RoleAssignments(e.getKey(), e.getValue()))
                     .collect(Collectors.toList());
 
-            return new UserGroupResponseRequest(userName, assignments);
-
-        } catch (Exception e) {
-            throw e;
-        }
+            return new UserGroupAssignmentResponse(userName, assignments);
     }
 
 
@@ -408,11 +406,12 @@ public class KeycloakAuthorizationProvisionerService {
 
     }*/
 
-    public String createUser(User request) {
+    public void createUser(UserRequest request) {
 
         List<UserRepresentation> users = keycloak.realm(realm).users().search(request.getUserName(), true);
-        if (!users.isEmpty()) {
-            return "User Name already exists. Please try different user "+request.getUserName(); // Found
+        if (users.stream().anyMatch(u -> request.getUserName().equalsIgnoreCase(u.getUsername()))) {
+            throw new UserAlreadyExistsException(
+                    String.format("User name already exists: %s", request.getUserName()));
         }
 
         // 1. Create user representation
@@ -424,17 +423,27 @@ public class KeycloakAuthorizationProvisionerService {
         user.setEmailVerified(true);
         user.setEnabled(true);
 
-        // 2. Send create request
-        Response response = keycloak.realm(realm).users().create(user);
+        String userId;
 
-        if (response.getStatus() != 201) {
-            System.out.println("Error Body: " + response.readEntity(String.class));
-            return "Failed to create user. Status: " + response.getStatus();
+        try (Response response = keycloak.realm(realm).users().create(user)) {
+            if (response.getStatus() != Response.Status.CREATED.getStatusCode()) {
+                String errorBody = response.readEntity(String.class);
+                log.error("Failed to create user in Keycloak. Status: {}, Error Body: {}",
+                        response.getStatus(), errorBody);
+
+                throw new UserCreationException(
+                        String.format("User creation failed. Status: %d, Error: %s",
+                                response.getStatus(), errorBody));
+            }
+
+            userId = response.getLocation()
+                    .getPath()
+                    .replaceAll(".*/([^/]+)$", "$1");
+
+            log.info("User [{}] created successfully in Keycloak. UserId={}",
+                    request.getUserName(), userId);
         }
 
-        // 3. Extract created userId
-        String userId = response.getLocation().getPath().replaceAll(".*/([^/]+)$", "$1");
-        response.close();
 
         // 4. Set password credential
         CredentialRepresentation cred = new CredentialRepresentation();
@@ -447,12 +456,10 @@ public class KeycloakAuthorizationProvisionerService {
                 .get(userId)
                 .resetPassword(cred);
 
-        return userId;
-
     }
 
 
-    public void createRoles(List<NameDescModel> roles) {
+    public void createRoles(List<RoleRequest> roles) {
         ClientRepresentation client = getClient(clientId);
         String clientUUID = client.getId();
         ClientResource clientResource = keycloak.realm(realm).clients().get(clientUUID);
@@ -460,7 +467,7 @@ public class KeycloakAuthorizationProvisionerService {
         List<String> created = new ArrayList<>();
         List<String> skipped = new ArrayList<>();
 
-        for (NameDescModel roleDTO : roles) {
+        for (RoleRequest roleDTO : roles) {
             try {
                 // Check if role already exists
 
