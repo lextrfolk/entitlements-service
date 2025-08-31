@@ -1,5 +1,6 @@
 package com.app.entitlement.service;
 
+import com.app.entitlement.config.KeyClockConfigProperties;
 import com.app.entitlement.exception.KeycloakClientNotFoundException;
 import com.app.entitlement.exception.UserAlreadyExistsException;
 import com.app.entitlement.exception.UserCreationException;
@@ -16,6 +17,7 @@ import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.representations.idm.*;
 import org.keycloak.representations.idm.authorization.*;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
@@ -29,6 +31,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@EnableConfigurationProperties(KeyClockConfigProperties.class)
 public class KeycloakAuthorizationProvisionerService {
 
     @Value("${keycloak.server-url}")
@@ -46,6 +49,14 @@ public class KeycloakAuthorizationProvisionerService {
     private Keycloak keycloak;
 
     private final RestTemplate restTemplate = new RestTemplate();
+
+    // This will be referred later
+    @SuppressWarnings("unused")
+    private final KeyClockConfigProperties keyClockProperties;
+
+    public KeycloakAuthorizationProvisionerService(KeyClockConfigProperties keyClockConfigProperties){
+        this.keyClockProperties = keyClockConfigProperties;
+    }
 
     @PostConstruct
     public void init() {
