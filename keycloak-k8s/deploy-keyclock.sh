@@ -23,6 +23,7 @@ kubectl wait --namespace $NAMESPACE \
   --for=condition=ready pod -l app=keycloak-postgres --timeout=120s
 
 echo " 5) Creating Keycloak Realm ConfigMap..."
+# TODO:  Update the path to entlrealm-export.json if necessary
 kubectl create configmap keycloak-realm \
   --from-file=entlrealm-export.json=./keycloak/entlrealm-export.json \
   -n $NAMESPACE \

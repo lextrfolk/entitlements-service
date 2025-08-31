@@ -22,14 +22,16 @@ spec:
             - |
               echo "Downloading Keycloak theme from GCS..."
               echo "Verify secrets required to download"
-              gsutil cp -r gs://my-bucket-name/myapp-theme/* /theme/
+              gsutil cp -r gs://keycloak-bucket-a/myapp-theme/* /theme/
           volumeMounts:
             - name: lextr-theme
               mountPath: /theme
       containers:
         - name: keycloak
           image: quay.io/keycloak/keycloak:21.1.1
-          args: ["start", "--optimized", "--import-realm"]
+          args: ["start-dev", "--import-realm" ]  #dev
+          #args: ["start", "--optimized", "--import-realm"] #prod
+          # Strict hostname chech disabled for dev testing
           env:
             - name: KEYCLOAK_ADMIN
               valueFrom:
@@ -55,13 +57,17 @@ spec:
                   key: POSTGRES_PASSWORD
             - name: KC_DB_URL
               value: jdbc:postgresql://keycloak-postgres:5432/keycloak
+            - name: KC_HOSTNAME_STRICT
+              value: "false"
+            - name: KC_HOSTNAME_STRICT_HTTPS
+              value: "false"
           ports:
             - containerPort: 8080
           volumeMounts:
             - name: realm-import
               mountPath: /opt/keycloak/data/import/entlrealm-export.json
               subPath: entlrealm-export.json
-            - name: custom-theme
+            - name: lextr-theme
               mountPath: /opt/keycloak/themes/myapp-theme
       volumes:
         - name: realm-import
