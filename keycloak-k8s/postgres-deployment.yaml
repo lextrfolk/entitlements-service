@@ -54,11 +54,10 @@ spec:
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
+              subPath: postgres
       volumes:
         - name: postgres-data
           persistentVolumeClaim:
             claimName: postgres-pvc
       securityContext:
-        runAsUser: 999
-        runAsGroup: 999
         fsGroup: 999

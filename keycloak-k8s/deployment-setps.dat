@@ -33,3 +33,8 @@ kubectl create configmap keycloak-realm \
   --from-file=entlrealm-export.json=./keycloak/entlrealm-export.json \
   -n keycloak -o yaml --dry-run=client | kubectl apply -f -
 kubectl rollout restart deployment/keycloak -n keycloak
+
+--------------- Extra commands ---------------------------
+
+Delete postgres PCV
+ kubectl delete pvc postgres-pvc -n keycloak
