@@ -29,8 +29,7 @@ spec:
       containers:
         - name: keycloak
           image: quay.io/keycloak/keycloak:21.1.1
-          args: ["start-dev", "--import-realm" ]  #dev
-          #args: ["start", "--optimized", "--import-realm"] #prod
+          args: ["start-dev", "--import-realm" ]
           # Strict hostname chech disabled for dev testing
           env:
             - name: KEYCLOAK_ADMIN
