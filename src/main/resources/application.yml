@@ -5,7 +5,7 @@ server:
   port: 9095
 
 keycloak:
-  server-url: http://127.0.0.1:8085
+  server-url: http://keycloak
   realm: entlrealm
   client-id: entl-client
-  clientSecret: I8kQO69qf3adJG0FBen3w5S1JoxBs8wr
+  clientSecret: yl47n5AQsGGlVKsFYJ2sjJlJ9gKzW5AS
