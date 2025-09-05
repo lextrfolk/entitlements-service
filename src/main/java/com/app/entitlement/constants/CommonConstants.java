@@ -15,4 +15,7 @@ public interface CommonConstants {
     String SAVE_METADATA_API = "/metadata";
 
 
+    // Below are the endpoints for UserController
+    String USER_BASE_PATH = "/api/users";
+    String PASSWORD_BASE_PATH = "/api/passwords";
 }

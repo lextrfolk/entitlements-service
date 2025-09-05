@@ -3,6 +3,7 @@ package com.app.entitlement.handler;
 
 
 import com.app.entitlement.constants.CommonConstants;
+import com.app.entitlement.exception.InvalidPasswordException;
 import com.app.entitlement.exception.UserAlreadyExistsException;
 import com.app.entitlement.exception.UserCreationException;
 import com.app.entitlement.exception.UserNotFoundException;
@@ -60,9 +61,9 @@ public class GlobalExceptionHandler {
      * @param ex the UserAlreadyExistsException
      * @return a ResponseEntity with CONFLICT status and error details
      */
-    @ExceptionHandler({UserCreationException.class, UserAlreadyExistsException.class})
-    public ResponseEntity<Map<String, String>> handleUserAlreadyExistsException(UserAlreadyExistsException ex) {
-        logger.warn("User already exists: {}", ex.getMessage());
+    @ExceptionHandler({InvalidPasswordException.class, UserCreationException.class, UserAlreadyExistsException.class})
+    public ResponseEntity<Map<String, String>> handleUserAlreadyExistsException(RuntimeException ex) {
+        logger.warn("Conflict: {}", ex.getMessage());
         logException(ex);
         return buildResponseEntity(ex.getMessage(), HttpStatus.CONFLICT);
     }
