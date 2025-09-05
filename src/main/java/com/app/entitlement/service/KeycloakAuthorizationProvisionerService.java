@@ -50,23 +50,8 @@ public class KeycloakAuthorizationProvisionerService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // This will be referred later
-    @SuppressWarnings("unused")
-    private final KeyClockConfigProperties keyClockProperties;
-
-    public KeycloakAuthorizationProvisionerService(KeyClockConfigProperties keyClockConfigProperties){
-        this.keyClockProperties = keyClockConfigProperties;
-    }
-
-    @PostConstruct
-    public void init() {
-        keycloak = KeycloakBuilder.builder()
-                .serverUrl(serverUrl)
-                .realm(realm)
-                .clientId(clientId)
-                .clientSecret(clientSecret)
-                .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
-                .build();
+    public KeycloakAuthorizationProvisionerService(Keycloak keycloak){
+        this.keycloak = keycloak;
     }
 
     private String getAdminToken() {
