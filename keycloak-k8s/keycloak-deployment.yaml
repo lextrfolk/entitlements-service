@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      initContainers:
+        - name: fetch-theme
+          image: google/cloud-sdk:slim
+          command:
+            - sh
+            - -c
+            - |
+              echo "Downloading Keycloak theme from GCS..."
+              echo "Verify secrets required to download"
+              gsutil cp -r gs://keycloak-bucket-a/myapp-theme/* /theme/
+          volumeMounts:
+            - name: lextr-theme
+              mountPath: /theme
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:21.1.1
+          args: ["start-dev", "--import-realm" ]
+          # Strict hostname chech disabled for dev testing
+          env:
+            - name: KEYCLOAK_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secrets
+                  key: KEYCLOAK_ADMIN
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secrets
+                  key: KEYCLOAK_ADMIN_PASSWORD
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secrets
+                  key: POSTGRES_USER
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secrets
+                  key: POSTGRES_PASSWORD
+            - name: KC_DB_URL
+              value: jdbc:postgresql://keycloak-postgres:5432/keycloak
+            - name: KC_HOSTNAME_STRICT
+              value: "false"
+            - name: KC_HOSTNAME_STRICT_HTTPS
+              value: "false"
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: realm-import
+              mountPath: /opt/keycloak/data/import/entlrealm-export.json
+              subPath: entlrealm-export.json
+            - name: lextr-theme
+              mountPath: /opt/keycloak/themes/myapp-theme
+      volumes:
+        - name: realm-import
+          configMap:
+            name: keycloak-realm
+        - name: lextr-theme
+          emptyDir: {}

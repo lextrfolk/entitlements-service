@@ -3,7 +3,7 @@ package com.app.entitlement.model;
 import lombok.Data;
 
 @Data
-public class User {
+public class UserRequest {
 
     private String firstName;
     private String lastName;

@@ -1,7 +1,11 @@
+spring:
+  application:
+    name: entitlements
+server:
+  port: 9095
+
 keycloak:
-  server-url: http://localhost:8085
+  server-url: http://keycloak
   realm: entlrealm
   client-id: entl-client
-  username: entladmin
-  clientSecret: iAxwicRzS1CqboCBXwoYBTsRcLe1ibFL
-  password: admin
+  clientSecret: yl47n5AQsGGlVKsFYJ2sjJlJ9gKzW5AS

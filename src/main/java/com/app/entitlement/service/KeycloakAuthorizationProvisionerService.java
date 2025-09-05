@@ -1,5 +1,10 @@
 package com.app.entitlement.service;
 
+import com.app.entitlement.config.KeyClockConfigProperties;
+import com.app.entitlement.exception.KeycloakClientNotFoundException;
+import com.app.entitlement.exception.UserAlreadyExistsException;
+import com.app.entitlement.exception.UserCreationException;
+import com.app.entitlement.exception.UserNotFoundException;
 import com.app.entitlement.model.*;
 import jakarta.annotation.PostConstruct;
 
@@ -12,6 +17,7 @@ import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.representations.idm.*;
 import org.keycloak.representations.idm.authorization.*;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
@@ -25,6 +31,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@EnableConfigurationProperties(KeyClockConfigProperties.class)
 public class KeycloakAuthorizationProvisionerService {
 
     @Value("${keycloak.server-url}")
@@ -36,18 +43,20 @@ public class KeycloakAuthorizationProvisionerService {
     @Value("${keycloak.client-id}")
     private String clientId;
 
-    @Value("${keycloak.username}")
-    private String username;
-
-    @Value("${keycloak.password}")
-    private String password;
-
     @Value("${keycloak.clientSecret}")
     private String clientSecret;
 
     private Keycloak keycloak;
 
     private final RestTemplate restTemplate = new RestTemplate();
+
+    // This will be referred later
+    @SuppressWarnings("unused")
+    private final KeyClockConfigProperties keyClockProperties;
+
+    public KeycloakAuthorizationProvisionerService(KeyClockConfigProperties keyClockConfigProperties){
+        this.keyClockProperties = keyClockConfigProperties;
+    }
 
     @PostConstruct
     public void init() {
@@ -56,9 +65,7 @@ public class KeycloakAuthorizationProvisionerService {
                 .realm(realm)
                 .clientId(clientId)
                 .clientSecret(clientSecret)
-                .username(username)
-                .password(password)
-                .grantType(OAuth2Constants.PASSWORD)
+                .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
                 .build();
     }
 
@@ -72,9 +79,7 @@ public class KeycloakAuthorizationProvisionerService {
         Map<String, String> params = Map.of(
                 "client_id", clientId,
                 "client_secret",clientSecret,
-                "grant_type", "password",
-                "username", username,
-                "password", password
+                "grant_type", "client_credentials"
         );
 
         HttpEntity<String> request = new HttpEntity<>(buildForm(params), headers);
@@ -127,7 +132,10 @@ public class KeycloakAuthorizationProvisionerService {
     }
 
     private ClientRepresentation getClient(String clientId) {
-        return keycloak.realm(realm).clients().findByClientId(clientId).get(0);
+        List<ClientRepresentation> clientRepresentations = keycloak.realm(realm).clients().findByClientId(clientId);
+        if (clientRepresentations.isEmpty())
+            throw new KeycloakClientNotFoundException(clientId);
+        return clientRepresentations.get(0);
     }
 
     private void createResource(String clientUUID, String form, List<String> scopes) {
@@ -142,7 +150,9 @@ public class KeycloakAuthorizationProvisionerService {
                 })
                 .collect(Collectors.toSet());
         resource.setScopes(scopeSet);
-        keycloak.realm(realm).clients().get(clientUUID).authorization().resources().create(resource);
+        try(var response = keycloak.realm(realm).clients().get(clientUUID).authorization().resources().create(resource)){
+            log.info("Resource created: {} Response: {}", form, response.getStatus());
+        }
     }
 
     private void createScope(String clientUUID, String scopeName) {
@@ -324,11 +334,10 @@ public class KeycloakAuthorizationProvisionerService {
 
 
 
-    public UserGroupResponseRequest getUserEntl(String userName) {
-        try {
+    public UserGroupAssignmentResponse getUserEntl(String userName) {
             List<UserRepresentation> users = keycloak.realm(realm).users().search(userName, true);
             if (users.isEmpty()) {
-                throw new RuntimeException("User not found: " + userName);
+                throw new UserNotFoundException(String.format("User not found: %s", userName));
             }
             String userId = users.get(0).getId();
             UserResource userResource = keycloak.realm(realm).users().get(userId);
@@ -356,11 +365,7 @@ public class KeycloakAuthorizationProvisionerService {
                     .map(e -> new RoleAssignments(e.getKey(), e.getValue()))
                     .collect(Collectors.toList());
 
-            return new UserGroupResponseRequest(userName, assignments);
-
-        } catch (Exception e) {
-            throw e;
-        }
+            return new UserGroupAssignmentResponse(userName, assignments);
     }
 
 
@@ -408,11 +413,12 @@ public class KeycloakAuthorizationProvisionerService {
 
     }*/
 
-    public String createUser(User request) {
+    public void createUser(UserRequest request) {
 
         List<UserRepresentation> users = keycloak.realm(realm).users().search(request.getUserName(), true);
-        if (!users.isEmpty()) {
-            return "User Name already exists. Please try different user "+request.getUserName(); // Found
+        if (users.stream().anyMatch(u -> request.getUserName().equalsIgnoreCase(u.getUsername()))) {
+            throw new UserAlreadyExistsException(
+                    String.format("User name already exists: %s", request.getUserName()));
         }
 
         // 1. Create user representation
@@ -424,17 +430,27 @@ public class KeycloakAuthorizationProvisionerService {
         user.setEmailVerified(true);
         user.setEnabled(true);
 
-        // 2. Send create request
-        Response response = keycloak.realm(realm).users().create(user);
+        String userId;
 
-        if (response.getStatus() != 201) {
-            System.out.println("Error Body: " + response.readEntity(String.class));
-            return "Failed to create user. Status: " + response.getStatus();
+        try (Response response = keycloak.realm(realm).users().create(user)) {
+            if (response.getStatus() != Response.Status.CREATED.getStatusCode()) {
+                String errorBody = response.readEntity(String.class);
+                log.error("Failed to create user in Keycloak. Status: {}, Error Body: {}",
+                        response.getStatus(), errorBody);
+
+                throw new UserCreationException(
+                        String.format("User creation failed. Status: %d, Error: %s",
+                                response.getStatus(), errorBody));
+            }
+
+            userId = response.getLocation()
+                    .getPath()
+                    .replaceAll(".*/([^/]+)$", "$1");
+
+            log.info("User [{}] created successfully in Keycloak. UserId={}",
+                    request.getUserName(), userId);
         }
 
-        // 3. Extract created userId
-        String userId = response.getLocation().getPath().replaceAll(".*/([^/]+)$", "$1");
-        response.close();
 
         // 4. Set password credential
         CredentialRepresentation cred = new CredentialRepresentation();
@@ -447,40 +463,38 @@ public class KeycloakAuthorizationProvisionerService {
                 .get(userId)
                 .resetPassword(cred);
 
-        return userId;
-
     }
 
 
-    public void createRoles(List<NameDescModel> roles) {
+    public void createRoles(List<RoleRequest> roles) {
         ClientRepresentation client = getClient(clientId);
         String clientUUID = client.getId();
         ClientResource clientResource = keycloak.realm(realm).clients().get(clientUUID);
         List<RoleRepresentation> existingRoles = getClientRoles(clientUUID);
+
+        Set<String> existingRoleNames = existingRoles.stream()
+                .map(RoleRepresentation::getName)
+                .collect(Collectors.toSet());
+
         List<String> created = new ArrayList<>();
         List<String> skipped = new ArrayList<>();
 
-        for (NameDescModel roleDTO : roles) {
+        for (RoleRequest roleDTO : roles) {
+            if (existingRoleNames.contains(roleDTO.getName())) {
+                skipped.add(roleDTO.getName());
+                continue;
+            }
+
+            // Create role
+            RoleRepresentation role = new RoleRepresentation();
+            role.setName(roleDTO.getName());
+            role.setDescription(roleDTO.getDescription());
             try {
-                // Check if role already exists
-
-                boolean exists = existingRoles.stream()
-                        .anyMatch(r -> r.getName().equals(roleDTO.getName()));
-
-                if (exists) {
-                    skipped.add(roleDTO.getName());
-                    continue;
-                }
-
-                // Create role
-                RoleRepresentation role = new RoleRepresentation();
-                role.setName(roleDTO.getName());
-                role.setDescription(roleDTO.getDescription());
                 clientResource.roles().create(role);
                 created.add(roleDTO.getName());
-
             } catch (Exception e) {
-               throw e;
+                log.error("Failed to create role {}: {}", roleDTO.getName(), e.getMessage(), e);
+                skipped.add(roleDTO.getName());
             }
         }
 
@@ -488,6 +502,7 @@ public class KeycloakAuthorizationProvisionerService {
                 "created", created,
                 "skipped", skipped
         );
+        log.info("Role creation summary: {}", response);
     }
 }
 

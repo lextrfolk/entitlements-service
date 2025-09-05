@@ -5,11 +5,11 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class UserGroupResponseRequest {
+public class UserGroupAssignmentResponse {
     private String userId;
     private List<RoleAssignments> assignments;
 
-    public UserGroupResponseRequest(String userId, List<RoleAssignments> assignments) {
+    public UserGroupAssignmentResponse(String userId, List<RoleAssignments> assignments) {
         this.userId = userId;
         this.assignments = assignments;
     }

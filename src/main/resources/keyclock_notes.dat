@@ -1,0 +1,19 @@
+Service account activation for credentials based validation.(to enable client to use its credentials to call Keycloak API)
+  1) Go to Clients → select your client.
+     Under Settings tab:=Scroll down to Service Accounts Enabled.
+     Toggle it ON. (Save changes)
+
+  2) A new tab will appear: Service Account Roles.
+     Go to Service Account Roles tab:
+     Select realm-management in the dropdown of available clients. (If not visible search by client)
+
+  3)  Assign at least the roles:
+      manage-users (to create/update users)
+      view-users (to read/search users)
+      manage-clients (Create / update / delete client roles)
+      view-clients (View client roles)
+
+      Or, if you want full access: realm-admin.
+      Save.
+
+      for scope creation manage-authorization role is needed along with above

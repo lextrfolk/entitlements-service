@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycloak-ingress
+  namespace: keycloak
+  annotations:
+    kubernetes.io/ingress.class: "gce"   # GKE ingress controller
+    kubernetes.io/ingress.global-static-ip-name: "keycloak-static-ip"  # static IP name
+spec:
+  rules:
+    - host: keycloak.example.com   # 👈 your domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keycloak
+                port:
+                  number: 8080
+  tls:
+    - hosts:
+        - keycloak.example.com
+      secretName: keycloak-tls  # 👈 for TLS (create later with cert-manager or manually)

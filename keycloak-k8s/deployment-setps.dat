@@ -1,0 +1,40 @@
+1) Apply the Namespace
+   kubectl apply -f namespace.yaml
+
+2) Apply Secrets
+    kubectl apply -f secrets.yaml
+
+3) Apply Persistent  Volume Claims
+
+   kubectl apply -f postgres-pvc.yaml
+   kubectl apply -f keycloak-pvc.yaml
+
+4) deploy Postgres
+   kubectl apply -f postgres-deployment.yaml
+   kubectl apply -f postgres-service.yaml
+
+5) Create Config Map using the  below command
+
+kubectl create configmap keycloak-realm \
+  --from-file=entlrealm-export.json=./keycloak/entlrealm-export.json \
+  -n keycloak
+
+6)  deploy  Keycloak
+    kubectl apply -f keycloak-deployment.yaml
+    kubectl apply -f keycloak-service.yaml
+
+
+
+
+
+-------------------------------------------------------------------------------------------------------
+7) In-case entlrealm-export.json file is updated, then run the below command to update the config map
+kubectl create configmap keycloak-realm \
+  --from-file=entlrealm-export.json=./keycloak/entlrealm-export.json \
+  -n keycloak -o yaml --dry-run=client | kubectl apply -f -
+kubectl rollout restart deployment/keycloak -n keycloak
+
+--------------- Extra commands ---------------------------
+
+Delete postgres PCV
+ kubectl delete pvc postgres-pvc -n keycloak
