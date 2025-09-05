@@ -398,44 +398,5 @@ public class KeycloakAuthorizationProvisionerService {
 
     }*/
 
-
-    public void createRoles(List<RoleRequest> roles) {
-        ClientRepresentation client = getClient(clientId);
-        String clientUUID = client.getId();
-        ClientResource clientResource = keycloak.realm(realm).clients().get(clientUUID);
-        List<RoleRepresentation> existingRoles = getClientRoles(clientUUID);
-
-        Set<String> existingRoleNames = existingRoles.stream()
-                .map(RoleRepresentation::getName)
-                .collect(Collectors.toSet());
-
-        List<String> created = new ArrayList<>();
-        List<String> skipped = new ArrayList<>();
-
-        for (RoleRequest roleDTO : roles) {
-            if (existingRoleNames.contains(roleDTO.getName())) {
-                skipped.add(roleDTO.getName());
-                continue;
-            }
-
-            // Create role
-            RoleRepresentation role = new RoleRepresentation();
-            role.setName(roleDTO.getName());
-            role.setDescription(roleDTO.getDescription());
-            try {
-                clientResource.roles().create(role);
-                created.add(roleDTO.getName());
-            } catch (Exception e) {
-                log.error("Failed to create role {}: {}", roleDTO.getName(), e.getMessage(), e);
-                skipped.add(roleDTO.getName());
-            }
-        }
-
-        Map<String, Object> response = Map.of(
-                "created", created,
-                "skipped", skipped
-        );
-        log.info("Role creation summary: {}", response);
-    }
 }
 

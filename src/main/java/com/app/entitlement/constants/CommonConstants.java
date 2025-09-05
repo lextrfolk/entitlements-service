@@ -18,4 +18,5 @@ public interface CommonConstants {
     // Below are the endpoints for UserController
     String USER_BASE_PATH = "/api/users";
     String PASSWORD_BASE_PATH = "/api/passwords";
+    String ROLES_BASE_PATH = "/api/roles";
 }

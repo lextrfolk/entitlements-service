@@ -79,20 +79,7 @@ public class ProvisioningController {
         return ResponseEntity.ok(ApiResponse.success("User groups fetched successfully.", responseRequest));
     }
 
-    /**
-     * Creates new roles in the entitlement system.
-     *
-     * @param roles the list of roles with names and descriptions
-     * @return a success response when the roles are created
-     */
-    @PostMapping("/roles")
-    public ResponseEntity<ApiResponse<String>> createRoles(@Valid @RequestBody List<RoleRequest> roles) {
-        logger.info("Creating {} new role(s).", roles.size());
-        provisionerService.createRoles(roles);
-        logger.debug("Roles created successfully: {}", roles);
 
-        return ResponseEntity.ok(ApiResponse.success("Roles created successfully.", null));
-    }
 
 
 
