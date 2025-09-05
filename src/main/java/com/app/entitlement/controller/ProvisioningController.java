@@ -80,21 +80,6 @@ public class ProvisioningController {
     }
 
     /**
-     * Creates a new user in the entitlement system.
-     *
-     * @param request the user details
-     * @return a success response when the user is created
-     */
-    @PostMapping("/users")
-    public ResponseEntity<ApiResponse<String>> createUser(@Valid @RequestBody UserRequest request) {
-        logger.info("Creating new user with username: {}", request.getUserName());
-        provisionerService.createUser(request);
-        logger.debug("User [{}] created successfully.", request.getUserName());
-
-        return ResponseEntity.ok(ApiResponse.success("User created successfully.", null));
-    }
-
-    /**
      * Creates new roles in the entitlement system.
      *
      * @param roles the list of roles with names and descriptions

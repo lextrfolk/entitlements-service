@@ -398,58 +398,6 @@ public class KeycloakAuthorizationProvisionerService {
 
     }*/
 
-    public void createUser(UserRequest request) {
-
-        List<UserRepresentation> users = keycloak.realm(realm).users().search(request.getUserName(), true);
-        if (users.stream().anyMatch(u -> request.getUserName().equalsIgnoreCase(u.getUsername()))) {
-            throw new UserAlreadyExistsException(
-                    String.format("User name already exists: %s", request.getUserName()));
-        }
-
-        // 1. Create user representation
-        UserRepresentation user = new UserRepresentation();
-        user.setUsername(request.getUserName());
-        user.setFirstName(request.getFirstName());
-        user.setLastName(request.getLastName());
-        user.setEmail(request.getEmail());
-        user.setEmailVerified(true);
-        user.setEnabled(true);
-
-        String userId;
-
-        try (Response response = keycloak.realm(realm).users().create(user)) {
-            if (response.getStatus() != Response.Status.CREATED.getStatusCode()) {
-                String errorBody = response.readEntity(String.class);
-                log.error("Failed to create user in Keycloak. Status: {}, Error Body: {}",
-                        response.getStatus(), errorBody);
-
-                throw new UserCreationException(
-                        String.format("User creation failed. Status: %d, Error: %s",
-                                response.getStatus(), errorBody));
-            }
-
-            userId = response.getLocation()
-                    .getPath()
-                    .replaceAll(".*/([^/]+)$", "$1");
-
-            log.info("User [{}] created successfully in Keycloak. UserId={}",
-                    request.getUserName(), userId);
-        }
-
-
-        // 4. Set password credential
-        CredentialRepresentation cred = new CredentialRepresentation();
-        cred.setType(CredentialRepresentation.PASSWORD);
-        cred.setValue(request.getKey());
-        cred.setTemporary(false);  // Set to true if you want the user to reset it
-
-        keycloak.realm(realm)
-                .users()
-                .get(userId)
-                .resetPassword(cred);
-
-    }
-
 
     public void createRoles(List<RoleRequest> roles) {
         ClientRepresentation client = getClient(clientId);
